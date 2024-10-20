@@ -2,27 +2,42 @@
   description = "Description for the project";
 
   inputs = {
-    flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    asahi-installer = {
-      url = "github:AsahiLinux/asahi-installer";
-      flake = false;
+
+    nixos-apple-silicon = {
+      url = "github:tpwrules/nixos-apple-silicon";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
   outputs =
-    inputs@{ flake-parts, asahi-installer, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
+    inputs@{ self, ... }:
+    let
       systems = [
         "aarch64-linux"
         "aarch64-darwin"
       ];
-      perSystem =
-        { config, pkgs, ... }:
+      forAllSystems = inputs.nixpkgs.lib.genAttrs systems;
+    in
+    {
+      packages = forAllSystems (
+        system:
+        let
+          pkgs = import inputs.nixpkgs {
+            crossSystem.system = "aarch64-linux";
+            localSystem.system = system;
+            overlays = [
+              # (import inputs.rust-overlay)
+              inputs.nixos-apple-silicon.overlays.default
+            ];
+          };
+        in
         {
-          packages.default = config.packages.asahi-installer;
+          default = self.packages.${system}.asahi-installer;
 
-          packages.asahi-installer = pkgs.callPackage ./default.nix { inherit inputs; };
-        };
+          asahi-installer = pkgs.callPackage ./default.nix { inherit self; };
+          libffiPkg = pkgs.callPackage ./packages/libffi { };
+        }
+      );
     };
 }
