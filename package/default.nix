@@ -1,35 +1,17 @@
 {
   callPackage,
   fetchgit,
-  fetchurl,
-  runCommand,
   lib,
-  m1n1,
   pkgs,
   stdenv,
-  self,
   system,
   writeShellScriptBin,
   ...
 }:
 let
-  inherit (self.packages.${system}) libffiPkg;
-  pythonPkg = fetchurl {
-    url = "https://www.python.org/ftp/python/3.9.6/python-3.9.6-macos11.pkg";
-    sha256 = "sha256-Y0t33n0u93cQlQqEvRjSra6dJSriBJNBaMnuyww46ik=";
-  };
-
-  fetchPythonPkg = writeShellScriptBin "fetch-python" ''
-    PYTHON_VER=3.9.6
-    PYTHON_PKG=python-$PYTHON_VER-macos11.pkg
-    PYTHON_URI="https://www.python.org/ftp/python/$PYTHON_VER/$PYTHON_PKG"
-
-    if [ -e "$PYTHON_PKG" ]; then
-      echo "Using existing $PYTHON_PKG"
-    else
-      # ${pkgs.wget}/bin/wget -Nc "$PYTHON_URI"
-    fi
-  '';
+  pythonPackage = callPackage ./python-package.nix { };
+  libffiPackage = callPackage ./libffi-package.nix { };
+  inherit (pkgs) m1n1;
 in
 stdenv.mkDerivation rec {
   pname = "asahi-installer";
@@ -40,16 +22,6 @@ stdenv.mkDerivation rec {
     homepage = "https://github.com/AsahiLinux/asahi-installer";
     license = licenses.mit;
   };
-
-  # src = fetchFromGitHub {
-  #   owner = "AsahiLinux";
-  #   repo = "asahi-installer";
-  #   rev = "v${version}";
-  #   hash = "sha256-UmgHWKIRbcg9PK44YPPM4tyuEDC0+ANKO3Mzc4N9RHo=";
-  #   fetchSubmodules = true;
-  #   leaveDotGit = true;
-  #   deepClone = true;
-  # };
 
   src = fetchgit {
     url = "https://github.com/AsahiLinux/asahi-installer.git";
@@ -62,6 +34,8 @@ stdenv.mkDerivation rec {
     p7zip
     m1n1
     python3
+    pythonPackage
+    libffiPackage
     python3Packages.certifi
     wget
   ];
@@ -74,15 +48,15 @@ stdenv.mkDerivation rec {
     LIBFFI_TARGET_OS="macOS 12.6"
     LIBFFI_PKG="libffi-$LIBFFI_VER-macos.tar.gz"
 
-    mkdir $out
+    mkdir -p $out/build
 
     AFW="$src/asahi_firmware"
     ARTWORK="$src/artwork"
-    DL="$out/dl"
+    DL="$out/build/dl"
     M1N1_STAGE1="${pkgs.m1n1}/build/m1n1.bin"
-    PACKAGE="$out/package"
-    RELEASES_DEV="$out/releases-dev"
-    RELEASES="$out/releases"
+    PACKAGE="$out/build/package"
+    RELEASES_DEV="$out/build/releases-dev"
+    RELEASES="$out/build/releases"
     SRC="$src/src"
     VER="${version}"
 
@@ -103,7 +77,8 @@ stdenv.mkDerivation rec {
     cp -r "$SRC"/* "$PACKAGE/"
     rm -rf "$PACKAGE/asahi_firmware"
     cp -r "$AFW" "$PACKAGE/"
-    cp "${libffiPkg}/dl/$LIBFFI_PKG" "$DL"
+    cp "${libffiPackage}/$LIBFFI_PKG" "$DL"
+    cp "${pythonPackage}/$PYTHON_PKG" "$DL"
     if [ -r "$LOGO" ]; then
       cp "$LOGO" "$PACKAGE/logo.icns"
     elif [ ! -r "$ARTWORK/logos/icns/AsahiLinux_logomark.icns" ]; then
@@ -161,5 +136,8 @@ stdenv.mkDerivation rec {
 
     tar czf "$PKGFILE" .
     echo "$VER" > "$LATEST"
+  '';
+  installPhase = ''
+    cp $out/build/releases/installer-*.tar.gz $out/
   '';
 }

@@ -27,7 +27,6 @@
             crossSystem.system = "aarch64-linux";
             localSystem.system = system;
             overlays = [
-              # (import inputs.rust-overlay)
               inputs.nixos-apple-silicon.overlays.default
             ];
           };
@@ -35,8 +34,7 @@
         {
           default = self.packages.${system}.asahi-installer;
 
-          asahi-installer = pkgs.callPackage ./default.nix { inherit self; };
-          libffiPkg = pkgs.callPackage ./packages/libffi { };
+          asahi-installer = pkgs.callPackage ./package { inherit self; };
         }
       );
     };
