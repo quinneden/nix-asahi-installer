@@ -1,5 +1,5 @@
 {
-  description = "Description for the project";
+  description = "Flake for asahi-installer";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -34,8 +34,9 @@
         {
           default = self.packages.${system}.asahi-installer;
 
-          asahi-installer = pkgs.callPackage ./package { inherit self; };
+          asahi-installer = pkgs.callPackage ./package { inherit self inputs; };
         }
       );
+      formatter = forAllSystems (system: inputs.nixpkgs.legacyPackages.${system}.nixfmt-rfc-style);
     };
 }

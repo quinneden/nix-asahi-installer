@@ -5,12 +5,12 @@
   pkgs,
   stdenv,
   system,
+  inputs,
   writeShellScriptBin,
   ...
 }:
 let
   pythonPackage = callPackage ./python-package.nix { };
-  libffiPackage = callPackage ./libffi-package.nix { };
   inherit (pkgs) m1n1;
 in
 stdenv.mkDerivation rec {
@@ -35,7 +35,6 @@ stdenv.mkDerivation rec {
     m1n1
     python3
     pythonPackage
-    libffiPackage
     python3Packages.certifi
     wget
   ];
@@ -77,7 +76,6 @@ stdenv.mkDerivation rec {
     cp -r "$SRC"/* "$PACKAGE/"
     rm -rf "$PACKAGE/asahi_firmware"
     cp -r "$AFW" "$PACKAGE/"
-    cp "${libffiPackage}/$LIBFFI_PKG" "$DL"
     cp "${pythonPackage}/$PYTHON_PKG" "$DL"
     if [ -r "$LOGO" ]; then
       cp "$LOGO" "$PACKAGE/logo.icns"
@@ -90,10 +88,7 @@ stdenv.mkDerivation rec {
     mkdir -p "$PACKAGE/boot"
     cp "$M1N1_STAGE1" "$PACKAGE/boot/m1n1.bin"
 
-    echo "Extracting libffi..."
-
     cd "$PACKAGE"
-    tar xf "$DL/$LIBFFI_PKG"
 
     echo "Extracting Python framework..."
 
@@ -102,12 +97,11 @@ stdenv.mkDerivation rec {
     ${pkgs.p7zip}/bin/7z x -so "$DL/$PYTHON_PKG" Python_Framework.pkg/Payload | zcat | \
       ${pkgs.cpio}/bin/cpio -i -D "$PACKAGE/Frameworks/Python.framework"
 
-
     cd "$PACKAGE/Frameworks/Python.framework/Versions/Current"
 
     echo "Moving in libffi..."
 
-    mv "$PACKAGE/libffi/$LIBFFI_VER/lib/"libffi*.dylib lib/
+    cp "${inputs.nixpkgs.legacyPackages.aarch64-darwin.libffi}/lib/"libffi*.dylib lib/
     rm -rf "$PACKAGE/libffi"
 
     echo "Slimming down Python..."
@@ -138,6 +132,12 @@ stdenv.mkDerivation rec {
     echo "$VER" > "$LATEST"
   '';
   installPhase = ''
-    cp $out/build/releases/installer-*.tar.gz $out/
+    if [[ -e $out/build/releases-dev/* ]]; then
+      cp $out/build/releases-dev/* $out/
+    else
+      cp $out/build/releases/* $out/
+    fi
+
+    rm -rf $out/build/{releases,releases-dev,dl}
   '';
 }

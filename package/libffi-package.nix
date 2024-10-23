@@ -1,9 +1,13 @@
-{ pkgs, ... }:
+{
+  pkgs,
+  lib,
+  ...
+}:
 let
   token = pkgs.fetchurl {
     name = "auth-token";
     url = "https://ghcr.io/token?service=ghcr.io&scope=repository%3Ahomebrew/core/go%3Apull";
-    sha256 = "sha256-7SubfdP7jYPdBKljBWSz9SeN8cziJwAb6nlO3j8uZ0Y=";
+    sha256 = lib.fakeHash;
   };
 
   tokenjson = builtins.fromJSON (builtins.readFile token);
